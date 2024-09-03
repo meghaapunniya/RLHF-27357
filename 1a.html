@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Meditation & Sleep Widget</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css"
+    />
+    <style>
+      body {
+        background-size: cover;
+        transition: background-image 0.5s;
+      }
+      #modeToggle {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+      }
+      #sessionList,
+      #settings,
+      #playerControls {
+        margin-top: 20px;
+      }
+      #sleepChart {
+        width: 100%;
+        height: 200px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <button id="modeToggle" class="button">Switch Mode</button>
+      <div id="sessionList"></div>
+      <div id="settings"></div>
+      <div id="playerControls">
+        <progress id="progressBar" value="0" max="100"></progress>
+        <button id="startBtn" class="button is-primary">Start</button>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          value="50"
+          class="slider"
+          id="volume"
+        />
+      </div>
+      <canvas id="sleepChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const meditationSessions = [
+        {
+          name: 'Deep Forest',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-memories.mp3',
+          theme: 'relaxation',
+          image:
+            'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+        },
+        //... Add 5 more entries
+      ];
+
+      const bedtimeSessions = [
+        { audio: 'lullaby.mp3', image: 'nightsky.jpg' },
+        //... Add 5 more entries
+      ];
+
+      let currentMode = 'meditation';
+      let audioPlayer = new Audio();
+      let chart;
+
+      document
+        .getElementById('modeToggle')
+        .addEventListener('click', function () {
+          currentMode = currentMode === 'meditation' ? 'bedtime' : 'meditation';
+          updateUI();
+        });
+
+      function updateUI() {
+        // Update UI based on current mode
+        document.body.style.backgroundImage = `url('${
+          currentMode === 'meditation'
+            ? meditationSessions[0].image
+            : bedtimeSessions[0].image
+        }')`;
+        // Populate session list, settings, etc.
+      }
+
+      function startSession(session) {
+        audioPlayer.src = session.audio;
+        audioPlayer.play();
+        // Handle progress bar or timer
+      }
+
+      function setupSleepChart() {
+        if (chart) chart.destroy();
+        chart = new Chart(document.getElementById('sleepChart'), {
+          type: 'line',
+          data: {
+            // Data for sleep hours over time
+          },
+          options: {},
+        });
+      }
+
+      document
+        .getElementById('startBtn')
+        .addEventListener('click', function () {
+          // Logic to start the selected session or bedtime routine
+         // startSession(meditationSessions[0]);
+        });
+
+      updateUI();
+      setupSleepChart();
+    </script>
+  </body>
+</html>

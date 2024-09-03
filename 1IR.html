@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sleep Meditation Widget</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css"
+    />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+      }
+      .widget {
+        width: 350px;
+        background-color: #ffffff;
+        border-radius: 15px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .header {
+        background-color: #4a90e2;
+        color: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .toggle-mode {
+        display: flex;
+        align-items: center;
+      }
+      .content {
+        padding: 20px;
+      }
+      .session-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-bottom: 15px;
+      }
+      .session-item {
+        padding: 10px;
+        border-bottom: 1px solid #e0e0e0;
+        cursor: pointer;
+      }
+      .session-item:hover {
+        background-color: #f5f5f5;
+      }
+      .customization {
+        margin-bottom: 15px;
+      }
+      .customization select,
+      .customization input[type='range'] {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 5px;
+      }
+      .start-button,
+      .pause-button,
+      .stop-button {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+      .pause-button {
+        background-color: #ff9800;
+      }
+      .stop-button {
+        background-color: #f44336;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 10px;
+        background-color: #e0e0e0;
+        border-radius: 5px;
+        margin-top: 15px;
+        overflow: hidden;
+      }
+      .progress {
+        width: 0%;
+        height: 100%;
+        background-color: #4a90e2;
+        transition: width 1s linear;
+      }
+      #sleepChart {
+        margin-top: 20px;
+      }
+      #bedtime-options input[type='time'] {
+        width: 100%;
+        margin: 10px 0;
+        padding: 5px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      #bedtime-options label {
+        font-size: 14px;
+        margin-top: 5px;
+        display: block;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="widget">
+      <div class="header">
+        <h2 id="mode-title">Sleep Meditation</h2>
+        <div class="toggle-mode">
+          <input type="checkbox" id="mode-toggle" />
+          <span>Bedtime</span>
+        </div>
+      </div>
+      <div class="content">
+        <div class="session-list" id="session-list"></div>
+        <div class="customization">
+          <select id="duration" style="display: block">
+            <option value="5">5 minutes</option>
+            <option value="10">10 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+          </select>
+          <select id="theme">
+            <option value="deep-sleep">Deep Sleep</option>
+            <option value="stress-relief">Stress Relief</option>
+            <option value="relaxation">Relaxation</option>
+          </select>
+          <input type="range" id="volume" min="0" max="100" value="50" />
+        </div>
+        <button class="start-button" id="start-button">Start Session</button>
+        <button class="pause-button" id="pause-button" style="display: none">
+          Pause Session
+        </button>
+        <button class="stop-button" id="stop-button" style="display: none">
+          Stop Session
+        </button>
+        <div class="progress-bar">
+          <div class="progress" id="progress"></div>
+        </div>
+        <div id="bedtime-options" style="display: none">
+          <input type="time" id="bedtime-reminder" />
+          <label for="bedtime-reminder">Set Bedtime Reminder</label>
+          <input type="time" id="wakeup-time" />
+          <label for="wakeup-time">Set Wake-up Time</label>
+        </div>
+        <canvas id="sleepChart" style="display: none"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const meditationSessions = [
+        {
+          name: 'Calm Mind',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-relaxing.mp3',
+          theme: 'relaxation',
+          image: 'https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0',
+        },
+        {
+          name: 'Deep Sleep',
+          audio: 'https://www.bensound.com/bensound-music/bensound-dreams.mp3',
+          theme: 'deep-sleep',
+          image: 'https://images.unsplash.com/photo-1495195134817-aeb325a55b65',
+        },
+        {
+          name: 'Stress Relief',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-slowmotion.mp3',
+          theme: 'stress-relief',
+          image:
+            'https://www.cosmeticsdesign-europe.com/var/wrbm_gb_food_pharma/storage/images/_aliases/wrbm_large/publications/cosmetics/cosmeticsdesign-europe.com/article/2023/12/06/spotlight-on-stress-relief-beauty/16993512-2-eng-GB/Spotlight-on-stress-relief-beauty.jpg',
+        },
+        {
+          name: 'Ocean Waves',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-littleidea.mp3',
+          theme: 'relaxation',
+          image:
+            'https://musicofnature.com/wp-content/uploads/2018/09/ocean_waves_album_cover-800x457.jpg',
+        },
+        {
+          name: 'Forest Sounds',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-tomorrow.mp3',
+          theme: 'deep-sleep',
+          image:
+            'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+        },
+        {
+          name: 'Gentle Rain',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-november.mp3',
+          theme: 'stress-relief',
+          image:
+            'https://img.freepik.com/premium-photo/gentle-rain-falling-lush-forest_1204086-6.jpg?w=1380',
+        },
+      ];
+
+      const bedtimeSounds = [
+        {
+          name: 'Lullaby',
+          audio: 'https://www.bensound.com/bensound-music/bensound-sweet.mp3',
+          image: 'https://images.unsplash.com/photo-1511974035430-5de47d3b95da',
+        },
+        {
+          name: 'White Noise',
+          audio: 'https://www.bensound.com/bensound-music/bensound-sunny.mp3',
+          image: 'https://images.unsplash.com/photo-1532274402911-5a369e4c4bb5',
+        },
+        {
+          name: 'Crickets',
+          audio: 'https://www.bensound.com/bensound-music/bensound-summer.mp3',
+          image: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e',
+        },
+        {
+          name: 'Soft Piano',
+          audio:
+            'https://www.bensound.com/bensound-music/bensound-tomorrow.mp3',
+          image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9',
+        },
+      ];
+
+      let isBedtimeMode = false;
+      const modeToggle = document.getElementById('mode-toggle');
+      const modeTitle = document.getElementById('mode-title');
+      const sessionList = document.getElementById('session-list');
+      const startButton = document.getElementById('start-button');
+      const pauseButton = document.getElementById('pause-button');
+      const stopButton = document.getElementById('stop-button');
+      const progressBar = document.getElementById('progress');
+      const durationSelect = document.getElementById('duration');
+      const bedtimeDurationSelect = document.getElementById('bedtime-duration');
+      const themeSelect = document.getElementById('theme');
+      const volumeSlider = document.getElementById('volume');
+      const bedtimeOptions = document.getElementById('bedtime-options');
+      const bedtimeReminder = document.getElementById('bedtime-reminder');
+      const wakeupTime = document.getElementById('wakeup-time');
+      let audioPlayer = null;
+      let sessionInterval = null;
+      let progress = 0;
+      let duration = 0;
+      let isPaused = false;
+      let elapsedTime = 0; // Track elapsed time in seconds
+      let bedtimeReminderTimeout = null;
+      let wakeupTimeTimeout = null;
+
+      function displaySessions(sessions) {
+        sessionList.innerHTML = '';
+        sessions.forEach((session) => {
+          const sessionItem = document.createElement('div');
+          sessionItem.className = 'session-item';
+          sessionItem.textContent = session.name;
+          sessionItem.addEventListener('click', () =>
+            selectSession(session.audio, session.name, session.image)
+          );
+          sessionList.appendChild(sessionItem);
+        });
+      }
+
+      function selectSession(audio, name, image) {
+        if (audioPlayer) {
+          audioPlayer.pause();
+          audioPlayer.currentTime = 0;
+        }
+        audioPlayer = new Audio(audio);
+        document.body.style.backgroundImage = `url(${image})`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+        toastr.info(`Selected session: ${name}`);
+      }
+
+      function startSession() {
+        if (!audioPlayer) {
+          toastr.error('Please select a session to start.');
+          return;
+        }
+
+        audioPlayer.volume = volumeSlider.value / 100;
+        audioPlayer.play();
+        startButton.style.display = 'none';
+        pauseButton.style.display = 'inline-block';
+        stopButton.style.display = 'inline-block';
+
+        duration = parseInt(durationSelect.value, 10) * 60; // Convert to seconds
+        progress = 0;
+        elapsedTime = 0; // Reset elapsed time
+        progressBar.style.width = '0%';
+
+        sessionInterval = setInterval(() => {
+          if (!isPaused) {
+            elapsedTime++;
+            progress = (elapsedTime / duration) * 100;
+            progressBar.style.width = `${progress}%`;
+
+            if (elapsedTime >= duration) {
+              clearInterval(sessionInterval);
+              stopSession();
+              toastr.success('Session completed!');
+            }
+          }
+        }, 1000);
+      }
+
+      function startProgress() {
+        progress = 0;
+        progressBar.style.width = '0%';
+
+        sessionInterval = setInterval(() => {
+          progress += 1;
+          progressBar.style.width = `${(progress / duration) * 100}%`;
+
+          if (progress >= duration) {
+            clearInterval(sessionInterval);
+            stopSession();
+            toastr.success('Session completed!');
+          }
+        }, 1000);
+      }
+
+      function pauseSession() {
+        if (audioPlayer) {
+          audioPlayer.pause();
+          clearInterval(sessionInterval);
+          pauseButton.textContent = 'Resume Session';
+          pauseButton.removeEventListener('click', pauseSession);
+          pauseButton.addEventListener('click', resumeSession);
+          toastr.info('Session paused.');
+        }
+      }
+
+      function resumeSession() {
+        if (audioPlayer) {
+          audioPlayer.play();
+          isPaused = false;
+          sessionInterval = setInterval(() => {
+            if (!isPaused) {
+              elapsedTime++;
+              progress = (elapsedTime / duration) * 100;
+              progressBar.style.width = `${progress}%`;
+
+              if (elapsedTime >= duration) {
+                clearInterval(sessionInterval);
+                stopSession();
+                toastr.success('Session completed!');
+              }
+            }
+          }, 1000);
+          pauseButton.textContent = 'Pause Session';
+          pauseButton.removeEventListener('click', resumeSession);
+          pauseButton.addEventListener('click', pauseSession);
+          toastr.info('Session resumed.');
+        }
+      }
+
+      function stopSession() {
+        if (audioPlayer) {
+          audioPlayer.pause();
+          audioPlayer.currentTime = 0;
+          clearInterval(sessionInterval);
+          startButton.style.display = 'inline-block';
+          pauseButton.style.display = 'none';
+          stopButton.style.display = 'none';
+          progressBar.style.width = '0%';
+          toastr.warning('Session stopped.');
+        }
+      }
+
+      const reminders = [];
+      let checkInterval;
+
+      // Function to set a reminder
+      function setReminder(time, message) {
+        const [hours, minutes] = time.split(':').map(Number);
+        const now = moment();
+        let reminderTime = moment().set({
+          hour: hours,
+          minute: minutes,
+          second: 0,
+          millisecond: 0,
+        });
+
+        // If reminder time is before now, move it to the next day
+        if (reminderTime.isBefore(now)) {
+          reminderTime.add(1, 'day');
+        }
+
+        reminders.push({ time: reminderTime, message });
+      }
+
+      // Function to handle time picker changes
+      function handleTimePickerChange(event) {
+        const time = event.target.value;
+        if (event.target.id === 'bedtime-reminder') {
+          setReminder(time, 'Time for bed! Start your sleep meditation.');
+        } else if (event.target.id === 'wakeup-time') {
+          setReminder(time, 'Wake up! Start your day with a fresh mindset.');
+        }
+      }
+
+      // Function to check for due reminders
+      function checkReminders() {
+        const now = moment();
+        reminders.forEach((reminder, index) => {
+          const msUntilReminder = reminder.time.diff(now);
+
+          // If the reminder is due or has already passed within the last minute
+          if (msUntilReminder <= 0 && msUntilReminder > -60000) {
+            toastr.info(reminder.message);
+            // Remove the reminder after showing
+            reminders.splice(index, 1);
+          }
+        });
+      }
+
+      // Start checking for reminders every minute
+      function startReminderCheck() {
+        checkInterval = setInterval(checkReminders, 500);
+        console.log('Reminder check started');
+      }
+
+      // Stop checking for reminders
+      function stopReminderCheck() {
+        if (checkInterval) {
+          clearInterval(checkInterval);
+          checkInterval = null;
+          console.log('Reminder check stopped');
+        }
+      }
+
+      // Call startReminderCheck when the script initializes
+      startReminderCheck();
+
+      modeToggle.addEventListener('change', (event) => {
+        isBedtimeMode = event.target.checked;
+        modeTitle.textContent = isBedtimeMode
+          ? 'Bedtime Mode'
+          : 'Sleep Meditation';
+        displaySessions(isBedtimeMode ? bedtimeSounds : meditationSessions);
+        bedtimeOptions.style.display = isBedtimeMode ? 'block' : 'none';
+        durationSelect.style.display = isBedtimeMode ? 'none' : 'block';
+        document.getElementById('sleepChart').style.display = isBedtimeMode
+          ? 'block'
+          : 'none';
+
+        if (bedtimeReminder.value) {
+          setReminder(
+            bedtimeReminder.value,
+            'Time for bed! Start your sleep meditation.'
+          );
+        }
+        if (wakeupTime.value) {
+          setReminder(wakeupTime.value, 'Good morning! Time to wake up.');
+        }
+      });
+
+      startButton.addEventListener('click', startSession);
+      pauseButton.addEventListener('click', pauseSession);
+      stopButton.addEventListener('click', stopSession);
+      // Add event listeners to time pickers
+      document
+        .getElementById('bedtime-reminder')
+        .addEventListener('change', handleTimePickerChange);
+      document
+        .getElementById('wakeup-time')
+        .addEventListener('change', handleTimePickerChange);
+      themeSelect.addEventListener('change', () => {
+        const selectedTheme = themeSelect.value;
+        const filteredSessions = meditationSessions.filter(
+          (session) => session.theme === selectedTheme
+        );
+        displaySessions(filteredSessions);
+      });
+
+      volumeSlider.addEventListener('input', () => {
+        audioPlayer.volume = volumeSlider.value / 100;
+      });
+
+      // Sleep tracking chart
+      const ctx = document.getElementById('sleepChart').getContext('2d');
+      const sleepChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Sleep Duration (hours)',
+              data: [],
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+
+      function trackSleep() {
+        const bedtime = new Date(`2023-01-01 ${bedtimeReminder.value}`);
+        const wakeup = new Date(`2023-01-01 ${wakeupTime.value}`);
+        let sleepDuration = (wakeup - bedtime) / (1000 * 60 * 60);
+
+        if (sleepDuration < 0) {
+          sleepDuration += 24;
+        }
+
+        const currentDate = new Date().toLocaleDateString();
+        sleepChart.data.labels.push(currentDate);
+        sleepChart.data.datasets[0].data.push(sleepDuration);
+        sleepChart.update();
+      }
+
+      wakeupTime.addEventListener('change', trackSleep);
+
+      displaySessions(meditationSessions);
+    </script>
+  </body>
+</html>
